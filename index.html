@@ -3,496 +3,671 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>River Glen - North Bend, WA | 3D Home Price Map</title>
-<script src="https://unpkg.com/deck.gl@9.0.16/dist.min.js"></script>
-<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
-<link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet" />
+<title>Kimmerle DFW House Hunt</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0a0a1a; overflow: hidden; }
-  #map { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; height: 100vh; }
 
+  #app { display: flex; height: 100vh; }
 
-  .median-panel {
-    position: fixed; bottom: 80px; left: 24px;
-    background: rgba(10, 10, 30, 0.88); backdrop-filter: blur(20px);
-    border: 1px solid rgba(255,255,255,0.15); border-radius: 16px;
-    padding: 26px 32px; text-align: center; z-index: 100; pointer-events: none;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(59,130,246,0.15);
-    min-width: 300px; transition: opacity 0.5s ease;
+  /* --- SIDEBAR --- */
+  #sidebar {
+    width: 380px; min-width: 380px; background: #1e293b; display: flex; flex-direction: column;
+    border-right: 1px solid #334155; z-index: 10; overflow: hidden;
   }
-  .median-panel.hidden { opacity: 0; }
-  .median-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2.5px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
-  .median-value { font-size: 42px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2; }
-  .median-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px; }
-  .year-pills { display: flex; gap: 6px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-  .year-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px; }
-  .year-pill.off { opacity: 0.2; text-decoration: line-through; }
-  .median-note { font-size: 9px; color: rgba(255,255,255,0.28); margin-top: 8px; font-style: italic; letter-spacing: 0.3px; }
-  .median-stats { display: flex; gap: 20px; justify-content: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.1); }
-  .stat { text-align: center; }
-  .stat-val { font-size: 18px; font-weight: 600; color: #e2e8f0; }
-  .stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.4); margin-top: 2px; }
-
-  .title-bar {
-    position: fixed; top: 20px; left: 20px; z-index: 100;
-    background: rgba(10, 10, 30, 0.85); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 20px;
+  #sidebar-header {
+    padding: 16px 20px; background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+    border-bottom: 1px solid #334155;
   }
-  .title-bar h1 { font-size: 17px; font-weight: 700; color: #f1f5f9; }
-  .title-bar p { font-size: 11px; color: rgba(255,255,255,0.45); margin-top: 3px; }
+  #sidebar-header h1 { font-size: 18px; font-weight: 700; color: #f8fafc; letter-spacing: 0.5px; }
+  #sidebar-header .subtitle { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 
-  .legend {
-    position: fixed; bottom: 80px; right: 24px; z-index: 100;
-    background: rgba(10, 10, 30, 0.88); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
-    padding: 14px 18px; min-width: 190px;
+  .stats-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+    padding: 12px 20px; border-bottom: 1px solid #334155; background: #162032;
   }
-  .legend-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-  .legend-hint { font-size: 8px; text-transform: none; letter-spacing: 0.5px; color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); }
-  .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
-  .legend-toggle { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; cursor: pointer; user-select: none; padding: 4px 6px; border-radius: 6px; transition: background 0.15s; }
-  .legend-toggle:hover { background: rgba(255,255,255,0.06); }
-  .legend-toggle input { display: none; }
-  .legend-toggle .toggle-track { width: 28px; height: 14px; border-radius: 7px; background: rgba(255,255,255,0.12); position: relative; flex-shrink: 0; transition: background 0.2s; }
-  .legend-toggle .toggle-knob { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.35); position: absolute; top: 2px; left: 2px; transition: transform 0.2s, background 0.2s; }
-  .legend-toggle input:checked ~ .toggle-track { background: rgba(255,255,255,0.2); }
-  .legend-toggle input:checked ~ .toggle-track .toggle-knob { transform: translateX(14px); background: #fff; }
-  .legend-toggle input:not(:checked) ~ .legend-swatch { opacity: 0.2; }
-  .legend-toggle input:not(:checked) ~ .legend-text { opacity: 0.3; text-decoration: line-through; }
+  .stat-card { text-align: center; padding: 8px 4px; border-radius: 8px; background: #1e293b; }
+  .stat-card .num { font-size: 22px; font-weight: 800; color: #38bdf8; }
+  .stat-card .label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+  .req-bar {
+    display: flex; gap: 6px; padding: 10px 20px; border-bottom: 1px solid #334155;
+    flex-wrap: wrap; background: #162032;
+  }
+  .req-tag {
+    font-size: 10px; padding: 3px 8px; border-radius: 10px;
+    background: #334155; color: #94a3b8; white-space: nowrap;
+  }
+
+  /* Filters */
+  #filters {
+    padding: 12px 20px; border-bottom: 1px solid #334155;
+  }
+  #filters h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; }
+  .filter-group { margin-bottom: 10px; }
+  .filter-group label { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px; }
+  .filter-group select, .filter-group input[type="range"] {
+    width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+    padding: 6px 8px; border-radius: 6px; font-size: 12px; outline: none;
+  }
+  .filter-group select:focus { border-color: #38bdf8; }
+  .range-labels { display: flex; justify-content: space-between; font-size: 10px; color: #64748b; }
+
+  /* Property List */
+  #property-list {
+    flex: 1; overflow-y: auto; padding: 8px 12px;
+  }
+  #property-list::-webkit-scrollbar { width: 6px; }
+  #property-list::-webkit-scrollbar-track { background: #1e293b; }
+  #property-list::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+
+  .prop-card {
+    background: #0f172a; border: 1px solid #334155; border-radius: 10px;
+    padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  .prop-card:hover { border-color: #38bdf8; transform: translateX(3px); }
+  .prop-card.active { border-color: #38bdf8; background: #172554; }
+  .prop-card .status-stripe {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  }
+  .prop-card .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-left: 8px; }
+  .prop-card .address { font-size: 12px; font-weight: 600; color: #f1f5f9; line-height: 1.3; max-width: 200px; }
+  .prop-card .price { font-size: 14px; font-weight: 800; color: #38bdf8; }
+  .prop-card .card-details { display: flex; gap: 8px; margin-top: 6px; margin-left: 8px; flex-wrap: wrap; }
+  .prop-card .detail { font-size: 10px; color: #94a3b8; }
+  .prop-card .detail strong { color: #cbd5e1; }
+  .prop-card .status-badge {
+    display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 4px;
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 6px; margin-left: 8px;
+  }
+  .prop-card .rank-badge {
+    position: absolute; top: 8px; right: 8px; width: 24px; height: 24px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 800; color: #0f172a;
+  }
+
+  /* --- MAP AREA --- */
+  #map-container { flex: 1; position: relative; }
+  #map { width: 100%; height: 100%; }
+
+  /* Legend */
+  #legend {
+    position: absolute; top: 16px; right: 16px; background: rgba(15,23,42,0.92);
+    border: 1px solid #334155; border-radius: 12px; padding: 14px 16px; z-index: 5;
+    backdrop-filter: blur(8px); min-width: 170px;
+  }
+  #legend h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .legend-swatch { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
-  .legend-text { font-size: 11px; color: rgba(255,255,255,0.65); }
+  .legend-label { font-size: 11px; color: #cbd5e1; }
 
-  .toggle-btn {
-    position: fixed; top: 20px; right: 20px; z-index: 100;
-    background: rgba(10, 10, 30, 0.85); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
-    padding: 8px 16px; color: #e2e8f0; font-size: 12px; cursor: pointer;
-    font-family: inherit; transition: background 0.2s;
+  /* Info Panel (bottom-right) */
+  #info-panel {
+    position: absolute; bottom: 16px; right: 16px; background: rgba(15,23,42,0.95);
+    border: 1px solid #334155; border-radius: 12px; padding: 16px 20px; z-index: 5;
+    backdrop-filter: blur(8px); max-width: 380px; display: none;
   }
-  .toggle-btn:hover { background: rgba(30, 30, 60, 0.9); }
+  #info-panel.visible { display: block; }
+  #info-panel .close-btn {
+    position: absolute; top: 8px; right: 12px; background: none; border: none;
+    color: #64748b; font-size: 18px; cursor: pointer; line-height: 1;
+  }
+  #info-panel .close-btn:hover { color: #f8fafc; }
+  #info-panel h3 { font-size: 14px; color: #f8fafc; margin-bottom: 4px; padding-right: 24px; }
+  #info-panel .ip-price { font-size: 20px; font-weight: 800; color: #38bdf8; margin-bottom: 8px; }
+  #info-panel .ip-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 8px; }
+  #info-panel .ip-item { font-size: 11px; }
+  #info-panel .ip-item .ip-label { color: #64748b; }
+  #info-panel .ip-item .ip-val { color: #e2e8f0; font-weight: 600; }
+  #info-panel .ip-notes { font-size: 11px; color: #94a3b8; line-height: 1.4; border-top: 1px solid #334155; padding-top: 8px; margin-top: 4px; }
 
-  .deck-tooltip {
-    font-family: 'Segoe UI', system-ui, sans-serif !important;
-    background: rgba(10, 10, 30, 0.95) !important; backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.15) !important; border-radius: 12px !important;
-    padding: 14px 18px !important; color: #e2e8f0 !important; font-size: 13px !important;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.4) !important; max-width: 300px !important;
-    pointer-events: none !important;
+  /* RealPage marker */
+  .realpage-marker {
+    width: 32px; height: 32px; border-radius: 50%; background: #0ea5e9;
+    border: 3px solid #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800; color: #fff; box-shadow: 0 0 12px rgba(14,165,233,0.5);
+    cursor: pointer;
   }
-  #tooltip-overlay { position: fixed; z-index: 10000; pointer-events: none; display: none; }
-  #tooltip-overlay .tip-inner {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: rgba(10, 10, 30, 0.95); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.15); border-radius: 12px;
-    padding: 14px 18px; color: #e2e8f0; font-size: 13px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.4); max-width: 320px;
+
+  /* Toggle sidebar button */
+  #toggle-sidebar {
+    position: absolute; top: 16px; left: 16px; z-index: 15; background: rgba(15,23,42,0.9);
+    border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 8px;
+    cursor: pointer; font-size: 13px; display: none; backdrop-filter: blur(4px);
+  }
+  #toggle-sidebar:hover { background: #1e293b; }
+
+  .maplibregl-popup-content {
+    background: #1e293b !important; color: #e2e8f0 !important;
+    border-radius: 10px !important; padding: 12px 16px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important; border: 1px solid #334155 !important;
+    font-family: 'Segoe UI', system-ui, sans-serif !important; max-width: 280px !important;
+  }
+  .maplibregl-popup-tip { border-top-color: #1e293b !important; }
+  .maplibregl-popup-close-button { color: #94a3b8 !important; font-size: 18px !important; }
+  .maplibregl-popup-close-button:hover { color: #f8fafc !important; }
+
+  /* Pulse animation for top contenders */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 8px rgba(16,185,129,0.4); }
+    50% { box-shadow: 0 0 20px rgba(16,185,129,0.8); }
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    #sidebar { display: none; }
+    #sidebar.open { display: flex; position: absolute; left: 0; top: 0; bottom: 0; z-index: 20; }
+    #toggle-sidebar { display: block; }
   }
 </style>
 </head>
 <body>
-<div id="map"></div>
-<div id="tooltip-overlay"><div class="tip-inner" id="tipContent"></div></div>
+<div id="app">
+  <button id="toggle-sidebar" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776; Menu</button>
 
-<div class="title-bar">
-  <h1>River Glen, North Bend WA</h1>
-  <p id="propCount"></p>
-</div>
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <h1>KIMMERLE DFW HOUSE HUNT</h1>
+      <div class="subtitle">Interactive Property Map &bull; Updated March 2026</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="num" id="stat-total">0</div><div class="label">Properties</div></div>
+      <div class="stat-card"><div class="num" id="stat-active" style="color:#10b981">0</div><div class="label">Active</div></div>
+      <div class="stat-card"><div class="num" id="stat-top" style="color:#fbbf24">0</div><div class="label">Top Picks</div></div>
+    </div>
+    <div class="req-bar">
+      <span class="req-tag">4+ Bed</span>
+      <span class="req-tag">2+ Bath</span>
+      <span class="req-tag">1800+ sqft</span>
+      <span class="req-tag">8/10+ Schools</span>
+      <span class="req-tag">$450K Max</span>
+      <span class="req-tag">$4K/mo Target</span>
+      <span class="req-tag">VA Loan</span>
+      <span class="req-tag">2-Car Garage</span>
+      <span class="req-tag">Move-in Ready</span>
+    </div>
+    <div id="filters">
+      <h3>Filters</h3>
+      <div class="filter-group">
+        <label>Status</label>
+        <select id="filter-status">
+          <option value="all">All Statuses</option>
+          <option value="top">Top Contenders</option>
+          <option value="active">Active / Contenders</option>
+          <option value="aspirational">Aspirational / Over Budget</option>
+          <option value="eliminated">Eliminated / Dropped</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Max Price: <strong id="price-val">$800K</strong></label>
+        <input type="range" id="filter-price" min="200000" max="800000" step="25000" value="800000">
+        <div class="range-labels"><span>$200K</span><span>$800K</span></div>
+      </div>
+      <div class="filter-group">
+        <label>Min School Rating</label>
+        <select id="filter-school">
+          <option value="all">Any</option>
+          <option value="A">A or A-</option>
+          <option value="B">B+ or above</option>
+          <option value="C">C+ or above</option>
+        </select>
+      </div>
+    </div>
+    <div id="property-list"></div>
+  </div>
 
-<div class="median-panel" id="medianPanel">
-  <div class="median-label" id="medianLabel">Median Sale Price</div>
-  <div class="median-value" id="medianValue"></div>
-  <div class="median-sub" id="medianSub"></div>
-  <div class="year-pills" id="yearPills"></div>
-  <div class="median-note">Est. values are not factored into this calculation</div>
-  <div class="median-stats">
-    <div class="stat"><div class="stat-val" id="lowPrice"></div><div class="stat-label">Lowest Sale</div></div>
-    <div class="stat"><div class="stat-val" id="highPrice"></div><div class="stat-label">Highest Sale</div></div>
+  <div id="map-container">
+    <div id="map"></div>
+    <div id="legend">
+      <h4>Property Status</h4>
+      <div class="legend-item"><div class="legend-swatch" style="background:#10b981"></div><span class="legend-label">Top Contender</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#34d399"></div><span class="legend-label">Strong / Best Value</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div><span class="legend-label">Active / Contender</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#06b6d4"></div><span class="legend-label">Financial Freedom</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#8b5cf6"></div><span class="legend-label">Aspirational / Over Budget</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#a855f7"></div><span class="legend-label">Design Reference</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ef4444"></div><span class="legend-label">Eliminated / Dropped</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#6b7280"></div><span class="legend-label">Needs Verification</span></div>
+      <h4 style="margin-top:12px">Column Height</h4>
+      <div style="font-size:11px;color:#94a3b8">Taller = Higher desirability score</div>
+      <h4 style="margin-top:12px">Landmarks</h4>
+      <div class="legend-item"><div class="legend-swatch" style="background:#0ea5e9;border-radius:50%"></div><span class="legend-label">RealPage HQ (Richardson)</span></div>
+    </div>
+    <div id="info-panel">
+      <button class="close-btn" onclick="closeInfoPanel()">&times;</button>
+      <div id="info-content"></div>
+    </div>
   </div>
 </div>
 
-<button class="toggle-btn" onclick="document.getElementById('medianPanel').classList.toggle('hidden');this.textContent=this.textContent==='Hide Stats'?'Show Stats':'Hide Stats'">Hide Stats</button>
-
-<div class="legend">
-  <div class="legend-title">Filter by Status</div>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('pending')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:#facc15"></div><div class="legend-text">Pending</div></label>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('for_sale')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:#22d3ee"></div><div class="legend-text">For Sale</div></label>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('2025')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:#6366f1"></div><div class="legend-text">Sold 2025</div></label>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('2024')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:#3b82f6"></div><div class="legend-text">Sold 2024</div></label>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('2023')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:#a855f7"></div><div class="legend-text">Sold 2023</div></label>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('2022')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:#f472b6"></div><div class="legend-text">Sold 2022</div></label>
-  <label class="legend-toggle"><input type="checkbox" checked onchange="toggle('est')" /><div class="toggle-track"><div class="toggle-knob"></div></div><div class="legend-swatch" style="background:rgba(148,163,184,0.5)"></div><div class="legend-text">Est. Value</div></label>
-</div>
-
+<script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
 <script>
-const S = { SOLD: 'sold', SOLD22: 'sold22', PENDING: 'pending', FOR_SALE: 'for_sale', EST: 'est' };
-
-// Redfin/Zillow estimate generator - uses address hash for consistent per-property variation
-function hashAddr(addr) { let h=0; for(let i=0;i<addr.length;i++){h=((h<<5)-h)+addr.charCodeAt(i);h|=0;} return Math.abs(h); }
-function estimates(addr, sqft) {
-  const s = sqft || 3000;
-  const h = hashAddr(addr);
-  // Redfin tends slightly higher, Zillow slightly lower, with per-property variation
-  const rfRate = 465 + (h % 40) - 20;   // 445-485 $/sqft
-  const zlRate = 450 + (h % 35) - 15;   // 435-470 $/sqft
-  const rf = Math.round(s * rfRate / 1000) * 1000;
-  const zl = Math.round(s * zlRate / 1000) * 1000;
-  return { redfin: rf, zillow: zl, median: Math.round((rf + zl) / 2 / 1000) * 1000 };
-}
-const e = (sqft) => Math.round((sqft || 3000) * 460); // placeholder, overwritten by post-processing
-const fmt = (n) => '$' + (n >= 1000000 ? (n/1000000).toFixed(2)+'M' : Math.round(n).toLocaleString());
-
-// ==================== ALL PROPERTIES (Photon geocoded) ====================
+// ===== PROPERTY DATA =====
 const properties = [
-  // === SOLD 2024-2026 (7 homes) - Photon geocoded ===
-  {address:"718 NE 4th St",lat:47.4951906,lng:-121.7727074,status:S.SOLD,saleDate:"Jul 24, 2024",salePrice:1299950,displayPrice:1299950,sqft:3070,beds:4,baths:3.5,dom:4,lotSqft:6184,yearBuilt:2019,ppsf:423},
-  {address:"782 NE 4th St",lat:47.4954614,lng:-121.7721114,status:S.SOLD,saleDate:"Jul 18, 2024",salePrice:1399950,displayPrice:1399950,sqft:3070,beds:4,baths:3.5,dom:6,lotSqft:8297,yearBuilt:2019,ppsf:456},
-  {address:"804 NE 4th St",lat:47.4954863,lng:-121.7716318,status:S.SOLD,saleDate:"Mar 7, 2025",salePrice:1450000,displayPrice:1450000,sqft:2842,beds:5,baths:3,dom:2,lotSqft:11404,yearBuilt:2018,ppsf:510},
-  {address:"775 NE 4th St",lat:47.4950464,lng:-121.7720541,status:S.SOLD,saleDate:"May 8, 2025",salePrice:1550000,displayPrice:1550000,sqft:3244,beds:5,baths:3.25,dom:null,lotSqft:7200,yearBuilt:2017,ppsf:478},
-  {address:"346 Zemp Way NE",lat:47.4935866,lng:-121.7712736,status:S.SOLD,saleDate:"Apr 8, 2025",salePrice:1348000,displayPrice:1348000,sqft:3070,beds:4,baths:3.25,dom:null,lotSqft:5096,yearBuilt:2017,ppsf:439},
-  {address:"312 Zemp Way NE",lat:47.4935804,lng:-121.7699475,status:S.SOLD,saleDate:"Aug 15, 2025",salePrice:1350000,displayPrice:1350000,sqft:2830,beds:4,baths:2.5,dom:null,lotSqft:5390,yearBuilt:2017,ppsf:477},
-  {address:"347 Vaughan Blvd NE",lat:47.4938707,lng:-121.7710385,status:S.SOLD,saleDate:"Jul 29, 2025",salePrice:1420000,displayPrice:1420000,sqft:3024,beds:4,baths:3.25,dom:null,lotSqft:5200,yearBuilt:2017,ppsf:470},
-
-  // === PENDING (1 home) ===
-  {address:"386 Zemp Way NE",lat:47.4942136,lng:-121.7724466,status:S.PENDING,saleDate:null,salePrice:null,displayPrice:1499950,listPrice:1499950,listDate:"Mar 26, 2026",sqft:3200,beds:5,baths:3.5,dom:7,lotSqft:5100,yearBuilt:2019,ppsf:469},
-
-  // === SOLD 2022-2023 (9 homes) ===
-  {address:"311 Zemp Way NE",lat:47.4931933,lng:-121.7699006,status:S.SOLD22,saleDate:"Feb 22, 2022",salePrice:1410800,displayPrice:1410800,sqft:3070,beds:4,baths:3.5,dom:6,lotSqft:5200,yearBuilt:2018,ppsf:460},
-  {address:"375 Zemp Way NE",lat:47.4937066,lng:-121.7729782,status:S.SOLD22,saleDate:"Mar 17, 2022",salePrice:1523000,displayPrice:1523000,sqft:3070,beds:4,baths:3.5,dom:4,lotSqft:5000,yearBuilt:2019,ppsf:496},
-  {address:"377 Zemp Way NE",lat:47.4938923,lng:-121.7730570,status:S.EST,saleDate:"Jun 2021",salePrice:1150000,displayPrice:e(2830),sqft:2830,beds:5,baths:2.75,lotSqft:6321,yearBuilt:2019},
-  {address:"353 Vaughan Blvd NE",lat:47.49388,lng:-121.7712781,status:S.SOLD22,saleDate:"Apr 8, 2022",salePrice:1546000,displayPrice:1546000,sqft:2842,beds:5,baths:3,dom:3,lotSqft:5100,yearBuilt:2017,ppsf:544},
-  {address:"865 NE 4th St",lat:47.4949939,lng:-121.7708923,status:S.SOLD22,saleDate:"May 5, 2022",salePrice:1549900,displayPrice:1549900,sqft:3270,beds:5,baths:3,dom:5,lotSqft:7500,yearBuilt:2017,ppsf:474},
-  {address:"381 Zemp Way NE",lat:47.4940538,lng:-121.7730567,status:S.SOLD22,saleDate:"May 24, 2022",salePrice:1600000,displayPrice:1600000,sqft:3270,beds:5,baths:3,dom:4,lotSqft:5036,yearBuilt:2019,ppsf:489},
-  {address:"356 Vaughan Blvd NE",lat:47.4944032,lng:-121.7709214,status:S.SOLD22,saleDate:"Sep 28, 2022",salePrice:1200000,displayPrice:1200000,sqft:2830,beds:5,baths:3,dom:14,lotSqft:5000,yearBuilt:2018,ppsf:424},
-  {address:"397 Zemp Way NE",lat:47.4946564,lng:-121.7730648,status:S.SOLD22,saleDate:"Jul 19, 2023",salePrice:1312500,displayPrice:1312500,sqft:3270,beds:5,baths:3,dom:6,lotSqft:5000,yearBuilt:2018,ppsf:401},
-  {address:"381 Vaughan Blvd NE",lat:47.4943197,lng:-121.7720458,status:S.SOLD22,saleDate:"Jul 14, 2023",salePrice:1350000,displayPrice:1350000,sqft:3270,beds:5,baths:2.75,dom:5,lotSqft:5013,yearBuilt:2019,ppsf:413},
-
-  // === ESTIMATED - NE 4th St (Photon geocoded, even=N side, odd=S side) ===
-  {address:"702 NE 4th St",lat:47.4951426,lng:-121.7729363,status:S.EST,saleDate:"Jul 2019",salePrice:799375,displayPrice:e(2842),sqft:2842,beds:4,baths:2.5,lotSqft:6164,yearBuilt:2019},
-  {address:"717 NE 4th St",lat:47.4948591,lng:-121.7724503,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"733 NE 4th St",lat:47.4949618,lng:-121.7722659,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"734 NE 4th St",lat:47.4952979,lng:-121.7725307,status:S.EST,saleDate:"Jul 2020",salePrice:900000,displayPrice:e(2842),sqft:2842,beds:4,baths:2.5,dom:null,lotSqft:6112,yearBuilt:2016},
-  {address:"760 NE 4th St",lat:47.4954096,lng:-121.7723106,status:S.EST,saleDate:"Apr 2020",salePrice:920000,displayPrice:e(3244),sqft:3244,beds:5,baths:3,dom:null,lotSqft:7333,yearBuilt:2017},
-  {address:"798 NE 4th St",lat:47.4954852,lng:-121.7718340,status:S.EST,saleDate:"Apr 2019",salePrice:875549,displayPrice:e(3024),sqft:3024,beds:4,baths:3.25,dom:null,lotSqft:10604,yearBuilt:2019},
-  {address:"805 NE 4th St",lat:47.4950788,lng:-121.7715244,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"826 NE 4th St",lat:47.4954576,lng:-121.7712979,status:S.EST,saleDate:null,salePrice:795489,displayPrice:e(2830),sqft:2830,beds:5,baths:4,dom:null},
-  {address:"833 NE 4th St",lat:47.4950629,lng:-121.771321,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"842 NE 4th St",lat:47.4954374,lng:-121.7710988,status:S.EST,saleDate:null,salePrice:764439,displayPrice:e(2830),sqft:2830,beds:5,baths:3,dom:null},
-  {address:"857 NE 4th St",lat:47.4950458,lng:-121.7710114,/*GMaps*/status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"858 NE 4th St",lat:47.4953815,lng:-121.7707988,status:S.EST,saleDate:null,salePrice:697597,displayPrice:e(2470),sqft:2470,beds:4,baths:3,dom:null},
-  {address:"874 NE 4th St",lat:47.4953412,lng:-121.7706042,status:S.EST,saleDate:null,salePrice:805000,displayPrice:e(2830),sqft:2830,beds:5,baths:3,dom:null},
-  {address:"896 NE 4th St",lat:47.4952391,lng:-121.7703392,status:S.EST,saleDate:null,salePrice:895166,displayPrice:e(3270),sqft:3270,beds:5,baths:3,dom:null},
-  {address:"897 NE 4th St",lat:47.4948234,lng:-121.7706793,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"906 NE 4th St",lat:47.4951075,lng:-121.7702064,status:S.EST,saleDate:"Jul 2021",salePrice:1415000,displayPrice:e(3244),sqft:3244,beds:4,baths:3,dom:null,lotSqft:25245,yearBuilt:2017},
-  {address:"922 NE 4th St",lat:47.4949442,lng:-121.7701474,status:S.EST,saleDate:"Dec 2017",salePrice:880007,displayPrice:e(2842),sqft:2842,beds:5,baths:2.75,dom:null,lotSqft:11123,yearBuilt:2017},
-  {address:"923 NE 4th St",lat:47.4947056,lng:-121.7705663,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"938 NE 4th St",lat:47.4948077,lng:-121.7700414,status:S.EST,saleDate:"Dec 2017",salePrice:714036,displayPrice:e(2449),sqft:2449,beds:4,baths:2.5,dom:null,lotSqft:11122,yearBuilt:2018},
-  {address:"953 NE 4th St",lat:47.4945438,lng:-121.7705004,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"956 NE 4th St",lat:47.4946589,lng:-121.7699643,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"969 NE 4th St",lat:47.4944297,lng:-121.7704197,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"972 NE 4th St",lat:47.4945387,lng:-121.7698906,status:S.EST,saleDate:"Sep 2017",salePrice:800547,displayPrice:e(2842),sqft:2842,beds:5,baths:2.75,dom:null,lotSqft:8017,yearBuilt:2017},
-  {address:"982 NE 4th St",lat:47.4944117,lng:-121.7698258,status:S.EST,saleDate:"Oct 2020",salePrice:952000,displayPrice:e(3024),sqft:3024,beds:4,baths:3.5,dom:null,lotSqft:7059,yearBuilt:2017},
-  {address:"987 NE 4th St",lat:47.4942863,lng:-121.7703188,status:S.EST,saleDate:null,salePrice:null,displayPrice:e(3000),sqft:3000,beds:null,baths:null,dom:null},
-  {address:"994 NE 4th St",lat:47.4942808,lng:-121.7697228,status:S.EST,saleDate:"Oct 2017",salePrice:853929,displayPrice:e(3244),sqft:3244,beds:5,baths:2.75,dom:null,lotSqft:9400,yearBuilt:2017},
-
-  // === ESTIMATED - Zemp Way NE (Photon geocoded) ===
-  {address:"301 Zemp Way NE",lat:47.4931959,lng:-121.7695024,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"302 Zemp Way NE",lat:47.4935897,lng:-121.7695228,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"307 Zemp Way NE",lat:47.4932059,lng:-121.7697019,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"308 Zemp Way NE",lat:47.4935933,lng:-121.7697263,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"317 Zemp Way NE",lat:47.4931902,lng:-121.7701089,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"323 Zemp Way NE",lat:47.4931852,lng:-121.7703083,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"324 Zemp Way NE",lat:47.4935975,lng:-121.7702026,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"328 Zemp Way NE",lat:47.4935864,lng:-121.7704037,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"330 Zemp Way NE",lat:47.4935742,lng:-121.7706224,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"336 Zemp Way NE",lat:47.4935735,lng:-121.7708317,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"329 Zemp Way NE",lat:47.4931836,lng:-121.7705324,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"331 Zemp Way NE",lat:47.493183,lng:-121.7707346,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"337 Zemp Way NE",lat:47.4931827,lng:-121.7709388,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"340 Zemp Way NE",lat:47.4935764,lng:-121.7710385,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"341 Zemp Way NE",lat:47.4931797,lng:-121.7711413,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"349 Zemp Way NE",lat:47.4931727,lng:-121.7713612,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"353 Zemp Way NE",lat:47.4931751,lng:-121.77156,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"357 Zemp Way NE",lat:47.4931729,lng:-121.7718054,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"359 Zemp Way NE",lat:47.4931689,lng:-121.7720076,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"361 Zemp Way NE",lat:47.4932429,lng:-121.7722683,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"363 Zemp Way NE",lat:47.4933649,lng:-121.7724757,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"352 Zemp Way NE",lat:47.4935664,lng:-121.7714806,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"358 Zemp Way NE",lat:47.4935736,lng:-121.7716954,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"360 Zemp Way NE",lat:47.493575,lng:-121.7718976,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"366 Zemp Way NE",lat:47.4936559,lng:-121.7721403,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"367 Zemp Way NE",lat:47.4934167,lng:-121.772637,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"371 Zemp Way NE",lat:47.4935272,lng:-121.7728026,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"372 Zemp Way NE",lat:47.4938289,lng:-121.772341,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"378 Zemp Way NE",lat:47.4939661,lng:-121.7724524,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"382 Zemp Way NE",lat:47.4940703,lng:-121.7724751,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"385 Zemp Way NE",lat:47.4941875,lng:-121.7730632,status:S.EST,saleDate:"Mar 2019",salePrice:867130,displayPrice:e(2842),sqft:2842,beds:5,baths:3,lotSqft:5500,yearBuilt:2018},
-  {address:"389 Zemp Way NE",lat:47.4943737,lng:-121.7730601,status:S.EST,saleDate:"Jul 2018",salePrice:845626,displayPrice:e(3024),sqft:3024,beds:4,baths:3.25,lotSqft:5000,yearBuilt:2018},
-  {address:"390 Zemp Way NE",lat:47.494401,lng:-121.7724692,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"393 Zemp Way NE",lat:47.4944749,lng:-121.7730614,status:S.EST,saleDate:"Jul 2018",salePrice:868617,displayPrice:e(3024),sqft:3024,beds:4,baths:3.25,lotSqft:5000,yearBuilt:2018},
-  {address:"394 Zemp Way NE",lat:47.4945602,lng:-121.7724728,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"398 Zemp Way NE",lat:47.4946531,lng:-121.7724868,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"399 Zemp Way NE",lat:47.4947485,lng:-121.7730828,status:S.EST,saleDate:"Jul 2018",salePrice:835575,displayPrice:e(3024),sqft:3024,beds:4,baths:3.25,lotSqft:5925,yearBuilt:2018},
-
-  // === ESTIMATED - Vaughan Blvd NE inner (even side) ===
-  {address:"342 Vaughan Blvd NE",lat:47.4942664,lng:-121.7708264,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"364 Vaughan Blvd NE",lat:47.4945185,lng:-121.7709795,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"372 Vaughan Blvd NE",lat:47.4946405,lng:-121.7710429,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"382 Vaughan Blvd NE",lat:47.4947562,lng:-121.7712936,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"398 Vaughan Blvd NE",lat:47.4947788,lng:-121.7715168,status:S.EST,displayPrice:e(3000),sqft:3000},
-  // === ESTIMATED - Vaughan Blvd NE outer (odd side, Photon geocoded) ===
-  {address:"303 Vaughan Blvd NE",lat:47.4938963,lng:-121.7695306,status:S.EST,displayPrice:e(2830),sqft:2830,beds:5,baths:3,yearBuilt:2017},
-  {address:"309 Vaughan Blvd NE",lat:47.4938713,lng:-121.7704498,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"319 Vaughan Blvd NE",lat:47.4938827,lng:-121.7699738,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"325 Vaughan Blvd NE",lat:47.4938906,lng:-121.7701795,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"329 Vaughan Blvd NE",lat:47.493875,lng:-121.7704158,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"335 Vaughan Blvd NE",lat:47.4938734,lng:-121.7706167,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"339 Vaughan Blvd NE",lat:47.4938732,lng:-121.7708389,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-
-  {address:"359 Vaughan Blvd NE",lat:47.4938679,lng:-121.7714831,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"363 Vaughan Blvd NE",lat:47.4939051,lng:-121.7717216,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"369 Vaughan Blvd NE",lat:47.4940424,lng:-121.7720047,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"375 Vaughan Blvd NE",lat:47.4942259,lng:-121.7720475,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"387 Vaughan Blvd NE",lat:47.49451,lng:-121.7720314,status:S.EST,displayPrice:e(3000),sqft:3000},
-  {address:"393 Vaughan Blvd NE",lat:47.4946628,lng:-121.7720475,status:S.EST,displayPrice:e(3000),sqft:3000},
-
-  {address:"399 Vaughan Blvd NE",lat:47.4947549,lng:-121.7720475,status:S.EST,displayPrice:e(3000),sqft:3000},
+  { id:1, address:"1711 Morris St, Dallas, TX 75212", price:700000, beds:5, baths:3.5, sqft:2643, year:2026, school:"Dallas ISD (Pinkston HS)", schoolGrade:"F", status:"ELIMINATED", reason:"Bottom-tier schools, $6,300+/mo", cat:"eliminated", score:8, lat:32.788, lng:-96.867 },
+  { id:2, address:"6511 Kemrock Dr, Dallas, TX 75241", price:null, beds:null, baths:null, sqft:null, year:null, school:"Dallas ISD", schoolGrade:"D/F", status:"ELIMINATED", reason:"South Dallas. Crime. Schools.", cat:"eliminated", score:5, lat:32.649, lng:-96.755 },
+  { id:3, address:"4415 Jamaica St, Dallas, TX 75210", price:null, beds:null, baths:null, sqft:null, year:null, school:"Dallas ISD", schoolGrade:"D/F", status:"ELIMINATED", reason:"South Dallas. Crime. Schools.", cat:"eliminated", score:5, lat:32.729, lng:-96.753 },
+  { id:4, address:"5116 Wynell St, Dallas, TX 75241", price:null, beds:null, baths:null, sqft:null, year:null, school:"Dallas ISD", schoolGrade:"D/F", status:"ELIMINATED", reason:"South Dallas. Crime. Schools.", cat:"eliminated", score:5, lat:32.652, lng:-96.763 },
+  { id:5, address:"8910 Wadlington Ave, Dallas, TX 75217", price:399000, beds:4, baths:3, sqft:2200, year:null, school:"Dallas ISD (Spruce HS)", schoolGrade:"F", status:"ELIMINATED", reason:"Design Bible. Non-starter: schools + safety.", cat:"design_reference", score:15, lat:32.703, lng:-96.665, notes:"DESIGN BIBLE: Dark metal siding, cedar accents, double-height ceilings, marble fireplace, wide plank hardwoods" },
+  { id:6, address:"4016 Puget St, Dallas, TX 75212", price:795000, beds:4, baths:4.5, sqft:3300, year:2026, school:"Dallas ISD (Pinkston HS)", schoolGrade:"F", status:"ELIMINATED", reason:"Same Pinkston HS. $6,300+/mo.", cat:"design_reference", score:12, lat:32.791, lng:-96.877 },
+  { id:7, address:"824 McBroom St, Dallas, TX 75212", price:799000, beds:4, baths:3.5, sqft:2715, year:2026, school:"Dallas ISD (Pinkston HS)", schoolGrade:"F", status:"ELIMINATED", reason:"Worse value than Puget.", cat:"design_reference", score:10, lat:32.787, lng:-96.869 },
+  { id:8, address:"2641 Alabama Ave, Dallas, TX 75216", price:399900, beds:4, baths:3, sqft:2278, year:2026, school:"Dallas ISD (Roosevelt HS)", schoolGrade:"D", status:"ELIMINATED", reason:"Cedar Crest gentrification. Appraisal risk.", cat:"eliminated", score:8, lat:32.721, lng:-96.782 },
+  { id:9, address:"414 Wilson St, McKinney, TX 75069", price:450000, beds:4, baths:3, sqft:2600, year:null, school:"McKinney ISD", schoolGrade:"A", status:"DESIGN_REFERENCE", reason:"Love interior. No sidewalks. Most expensive comp.", cat:"design_reference", score:30, lat:33.197, lng:-96.615, notes:"Waterfall island, floor-to-ceiling cabinets, loft area. Feeds McKinney HS (6/10) NOT McKinney North." },
+  { id:10, address:"2625 Sibley Dr, Midlothian, TX 76065", price:685000, beds:4, baths:4.5, sqft:3525, year:null, school:"Midlothian ISD", schoolGrade:"B", status:"ASPIRATIONAL", reason:"Best house and community. Doesn't achieve financial freedom.", cat:"aspirational", score:45, lat:32.482, lng:-96.99, notes:"Gated, lakes, greenbelts. MILE career/tech center. Viable if income hits $290K+." },
+  { id:11, address:"12259 Ross Calhoun Dr, Fort Worth, TX 76179", price:480000, beds:4, baths:2.5, sqft:2348, year:2026, school:"Eagle Mountain-Saginaw ISD", schoolGrade:"B", status:"OVER_BUDGET", reason:"Resort lifestyle. Gut keeps pulling here.", cat:"aspirational", score:42, lat:32.955, lng:-97.42, notes:"24/7 gated, golf course, resort pool, boat launch, lake access. 60-70 min to RealPage." },
+  { id:12, address:"228 Mossy Cliff Ln, Haslet, TX 76052", price:365795, beds:5, baths:3, sqft:2141, year:2023, school:"Northwest ISD", schoolGrade:"A", status:"STRONG_CONTENDER", reason:"Best schools (top 10% TX). Max financial relief. 638 DOM.", cat:"strong", score:78, lat:32.978, lng:-97.347, monthly:3300, notes:"TEA rating 89. Strongest school district in search. No amenities." },
+  { id:13, address:"501 Colgate Dr, Lancaster, TX 75134", price:285000, beds:4, baths:3, sqft:2983, year:1969, school:"Lancaster ISD", schoolGrade:"D+", status:"ELIMINATED", reason:"High crime. D+ schools. 57 sex offenders. 1969 build.", cat:"eliminated", score:5, lat:32.591, lng:-96.757 },
+  { id:14, address:"13148 Southhaven Way, Aubrey, TX 76227", price:349999, beds:4, baths:3, sqft:2480, year:null, school:"Aubrey ISD", schoolGrade:"B+", status:"CONTENDER", reason:"Denton County. Good value.", cat:"contender", score:55, lat:33.305, lng:-96.988 },
+  { id:16, address:"8517 Centerboard Ln, Fort Worth, TX 76179", price:290000, beds:4, baths:3, sqft:1991, year:null, school:"Eagle Mountain-Saginaw ISD", schoolGrade:"B", status:"NOT_AVAILABLE", reason:"Sold Oct 2023. Listed as rental.", cat:"eliminated", score:5, lat:32.945, lng:-97.41 },
+  { id:17, address:"2035 Pleasant Knoll Cir, Forney, TX 75126", price:340000, beds:4, baths:3, sqft:2200, year:null, school:"Forney ISD", schoolGrade:"C", status:"ELIMINATED", reason:"Forney ISD C-rated.", cat:"eliminated", score:8, lat:32.748, lng:-96.47 },
+  { id:18, address:"700 Cool Canyon Trl, Princeton, TX 75407", price:375000, beds:4, baths:3, sqft:2618, year:null, school:"Princeton ISD", schoolGrade:"B+", status:"CONTENDER", reason:"Top 25% statewide. 40-45 min to RealPage.", cat:"contender", score:55, lat:33.18, lng:-96.503, monthly:3350 },
+  { id:19, address:"511 Silo Cir, Royse City, TX 75189", price:269000, beds:5, baths:2, sqft:2063, year:null, school:"Community ISD", schoolGrade:"C", status:"ELIMINATED", reason:"Community ISD bottom 50%.", cat:"eliminated", score:8, lat:32.975, lng:-96.332 },
+  { id:20, address:"1644 Pegasus Dr, Forney, TX 75126", price:463000, beds:4, baths:2, sqft:2810, year:null, school:"Forney ISD", schoolGrade:"C", status:"ELIMINATED", reason:"Great house, terrible schools. Over budget.", cat:"eliminated", score:10, lat:32.745, lng:-96.465 },
+  { id:21, address:"3516 Mildren Bnd, Crandall, TX 75114", price:null, beds:null, baths:null, sqft:null, year:null, school:"Crandall ISD", schoolGrade:"C", status:"ELIMINATED", reason:"Weak schools.", cat:"eliminated", score:5, lat:32.629, lng:-96.455 },
+  { id:22, address:"2024 Colt Ct, Seagoville, TX 75159", price:null, beds:null, baths:null, sqft:null, year:null, school:"Unknown", schoolGrade:"D", status:"ELIMINATED", reason:"Safety concerns.", cat:"eliminated", score:5, lat:32.644, lng:-96.535 },
+  { id:23, address:"5664 Taylor Trl, Arlington, TX 76017", price:689000, beds:5, baths:4.5, sqft:3795, year:null, school:"Arlington ISD", schoolGrade:"B-", status:"OVER_BUDGET", reason:"Most house for the money. Gated. $689K.", cat:"aspirational", score:35, lat:32.674, lng:-97.108 },
+  { id:25, address:"2223 Shady Elm Rd, Midlothian, TX", price:439184, beds:4, baths:3, sqft:2859, year:null, school:"Waxahachie ISD", schoolGrade:"C", status:"DEPRIORITIZED", reason:"C-rated schools. Wrong district.", cat:"deprioritized", score:25, lat:32.47, lng:-96.945 },
+  { id:26, address:"706 Perry Ave, Waxahachie, TX", price:365000, beds:4, baths:3, sqft:2261, year:null, school:"Waxahachie ISD", schoolGrade:"C", status:"FINANCIAL_FREEDOM", reason:"Max financial freedom. C-rated HS tradeoff.", cat:"financial", score:50, lat:32.391, lng:-96.848, monthly:3100 },
+  { id:27, address:"708 Perry Ave, Waxahachie, TX", price:365000, beds:4, baths:3, sqft:2261, year:null, school:"Waxahachie ISD", schoolGrade:"C", status:"FINANCIAL_FREEDOM", reason:"Twin listing of 706 Perry.", cat:"financial", score:50, lat:32.392, lng:-96.849, monthly:3100 },
+  { id:28, address:"3721 Cherry Laurel Ln, Ovilla, TX", price:600000, beds:4, baths:2.5, sqft:2570, year:2023, school:"Midlothian ISD", schoolGrade:"B", status:"OVER_BUDGET", reason:"Midlothian ISD but doesn't achieve financial freedom.", cat:"aspirational", score:38, lat:32.527, lng:-96.89 },
+  { id:29, address:"Parks at Panchasarp, Burleson, TX", price:459900, beds:4, baths:3, sqft:3168, year:2023, school:"Joshua ISD (verify)", schoolGrade:"B-", status:"DATA_CONFLICT", reason:"Orchard $285K vs MLS $459K. Possible foreclosure.", cat:"other", score:30, lat:32.542, lng:-97.32 },
+  { id:31, address:"2223 River Bnd, Royse City, TX 75189", price:370000, beds:5, baths:3.5, sqft:2837, year:null, school:"Royse City ISD", schoolGrade:"B+", status:"BEST_VALUE", reason:"Best value. 5/3.5 at $370K. Under $4K/mo.", cat:"strong", score:75, lat:32.975, lng:-96.34, monthly:3500 },
+  { id:33, address:"223 Briarwood Ln, Lake Dallas, TX 75065", price:365500, beds:3, baths:2, sqft:2162, year:2022, school:"Lake Dallas ISD", schoolGrade:"C+", status:"ELIMINATED", reason:"Too small. Lake Dallas ISD 33% proficiency.", cat:"eliminated", score:8, lat:33.12, lng:-97.025 },
+  { id:36, address:"1132 Rountree Ct, Celina, TX 75009", price:335000, beds:4, baths:3, sqft:2126, year:2021, school:"Celina ISD", schoolGrade:"A", status:"TOP_CONTENDER", rank:1, reason:"THE ONE. Greenbelt lot, no rear neighbors.", cat:"top", score:95, lat:33.325, lng:-96.785, monthly:2850, fym:381000, notes:"Greenbelt lot. Hillside views. Single owner. Stone facade. <1 mi from Celina HS. Pool addition est $55-70k." },
+  { id:37, address:"4017 Glastonbury Rd, McKinney, TX 75071", price:318000, beds:4, baths:2, sqft:1842, year:2022, school:"Melissa ISD", schoolGrade:"A", status:"TOP_CONTENDER", rank:2, reason:"Best FYM at $390K. Melissa ISD.", cat:"top", score:92, lat:33.245, lng:-96.635, monthly:2700, fym:390000, notes:"Single story brick. Flex space for office. Country meets suburban. Price reduced from $330k." },
+  { id:38, address:"7313 Bledington Ln, McKinney, TX 75071", price:380000, beds:4, baths:3, sqft:2193, year:2023, school:"Verify McKinney/Melissa ISD", schoolGrade:"A", status:"TOP_CONTENDER", rank:3, reason:"$75k price drop. Never lived in.", cat:"top", score:89, lat:33.238, lng:-96.628, monthly:3200, fym:360000, notes:"Primary bed downstairs. Game room up. Pool, hike/bike trails. VERIFY SCHOOL DISTRICT." },
+  { id:39, address:"221 Caliber Ct, McKinney, TX 75071", price:335000, beds:4, baths:3, sqft:2040, year:2024, school:"McKinney ISD", schoolGrade:"A", status:"TOP_CONTENDER", rank:4, reason:"Community pool, gym, trails. Verify school feeder.", cat:"top", score:86, lat:33.228, lng:-96.655, monthly:2850, fym:381000, notes:"Granite counters, kitchen island, game room upstairs, master down. VERIFY feeds McKinney North." },
+  { id:40, address:"4918 Pebblewood Dr, McKinney, TX 75071", price:339900, beds:4, baths:3, sqft:2174, year:2022, school:"McKinney ISD", schoolGrade:"A", status:"TOP_CONTENDER", rank:5, reason:"Single-story. Best $/sqft at $156.", cat:"top", score:83, lat:33.232, lng:-96.648, monthly:2900, fym:378000, notes:"Electric fireplace, huge island, LVP flooring, covered patio. Barely lived in." },
+  { id:41, address:"1204 Kade Ave, Celina, TX 75009", price:375000, beds:4, baths:2, sqft:2081, year:2022, school:"Celina ISD", schoolGrade:"A", status:"TOP_CONTENDER", rank:6, reason:"Same Chalk Hill. Adjacent to greenbelt.", cat:"top", score:80, lat:33.322, lng:-96.79, monthly:3200, fym:363000, notes:"Quartz counters, engineered wood, large covered patio. $40k more than Rountree, one fewer bathroom." },
+  { id:42, address:"3604 Trickling Crk, McKinney, TX 75071", price:425000, beds:5, baths:3, sqft:3443, year:2005, school:"McKinney ISD", schoolGrade:"A", status:"DROPPED", reason:"OFF LIST: build year 2005.", cat:"dropped", score:20, lat:33.215, lng:-96.67, notes:"Best sqft/price ratio. Cibolo nostalgia - identical front." },
+  { id:43, address:"3821 Quail View Dr, McKinney, TX 75071", price:408000, beds:5, baths:3, sqft:2910, year:2002, school:"McKinney ISD", schoolGrade:"A", status:"ACTIVE", reason:"Renovation play. 0.26 acre lot.", cat:"active", score:58, lat:33.21, lng:-96.68, monthly:3450, notes:"Established neighborhood, mature trees. Larger lot." },
+  { id:44, address:"505 Cottagewood Dr, McKinney, TX 75071", price:358000, beds:4, baths:2.5, sqft:2360, year:2022, school:"McKinney ISD", schoolGrade:"A", status:"ACTIVE", reason:"Largest livable space under $375k.", cat:"active", score:62, lat:33.222, lng:-96.66, monthly:3050, fym:366000, notes:"Resort-style pool, parks, basketball. Granite counters, tankless water heater." },
+  { id:45, address:"1813 Wayne Ln, Celina, TX 75009", price:415000, beds:4, baths:3, sqft:2386, year:2021, school:"Celina ISD", schoolGrade:"A", status:"ACTIVE", reason:"Biggest home in Celina batch.", cat:"active", score:55, lat:33.318, lng:-96.778, monthly:3500 },
+  { id:46, address:"3415 Ivy Glen Dr, McKinney, TX 75071", price:425000, beds:3, baths:2.5, sqft:1880, year:1995, school:"McKinney ISD", schoolGrade:"A", status:"ACTIVE", reason:"HAS POOL. No HOA. Only 3 beds.", cat:"active", score:48, lat:33.205, lng:-96.69, monthly:3600, notes:"Pool saves $50-80k. Only 3 beds is the tradeoff." },
+  { id:47, address:"608 Rain Barrel Pl, Celina, TX 75009", price:389000, beds:3, baths:2, sqft:1769, year:2024, school:"McKinney ISD (confirmed)", schoolGrade:"A", status:"ACTIVE", reason:"VA assumable. Venetian lagoon resort under construction.", cat:"active", score:52, lat:33.305, lng:-96.765, monthly:3250, notes:"Office in floor plan. McKinney ISD despite Celina address. Only 3 beds." },
+  { id:48, address:"2020 Beeflower St, Celina, TX 75009", price:370000, beds:3, baths:2, sqft:2032, year:2025, school:"Celina ISD", schoolGrade:"A", status:"ACTIVE", reason:"Energy Star. Flex bonus room.", cat:"active", score:52, lat:33.312, lng:-96.8, monthly:3150 },
+  { id:49, address:"1132 Beautyberry Ln, Celina, TX 75009", price:384544, beds:3, baths:2.5, sqft:1693, year:2025, school:"Celina ISD", schoolGrade:"A", status:"DESIGN_REFERENCE", reason:"Ashton Woods Oxford. Closest to Wadlington aesthetic.", cat:"design_reference", score:28, lat:33.315, lng:-96.795, notes:"Dark browns + modern neutrals. Worth walking through for finish inspiration." },
+  { id:50, address:"1420 Clare Ct, Celina, TX 75009", price:444000, beds:3, baths:3, sqft:2472, year:2025, school:"Celina ISD", schoolGrade:"A", status:"ACTIVE", reason:"3+study/3. New build.", cat:"active", score:48, lat:33.33, lng:-96.775, monthly:3750 },
+  { id:51, address:"7708 Thornton Dr, McKinney, TX 75071", price:299900, beds:3, baths:2, sqft:1260, year:2021, school:"Verify McKinney/Melissa ISD", schoolGrade:"A", status:"ACTIVE_PROBLEMATIC", reason:"Highest FYM but only 1,260 sqft. 164 DOM.", cat:"active", score:35, lat:33.24, lng:-96.622, monthly:2550, notes:"Boys would share room. Addition $18-35k + HOA battle." },
+  { id:52, address:"6638 Loy Dr, Princeton, TX 75407", price:228900, beds:4, baths:2, sqft:1300, year:2023, school:"Princeton ISD", schoolGrade:"B", status:"ELIMINATED", reason:"6/10 GS below 8+ threshold. Values cratering.", cat:"eliminated", score:8, lat:33.175, lng:-96.505 },
+  { id:53, address:"913 Chickesaw Ln, Wylie, TX 75098", price:289000, beds:3, baths:2.5, sqft:1234, year:2022, school:"Wylie ISD", schoolGrade:"A", status:"DROPPED", reason:"Townhome. Best schools (9/10). Too small.", cat:"dropped", score:22, lat:33.025, lng:-96.545, notes:"Best school district. Signals: hunt Wylie ISD for 4-bed SFH." },
+  { id:54, address:"115 Teakwood Dr, Rockwall, TX 75087", price:399000, beds:3, baths:2, sqft:1800, year:1984, school:"Rockwall ISD", schoolGrade:"A", status:"ACTIVE", reason:"HAS POOL. Rockwall ISD #1 academic growth. 72% math.", cat:"active", score:52, lat:32.935, lng:-96.465, monthly:3400, notes:"IB program. Lake Ray Hubbard. 30-35 min to RealPage. Only 3 beds." },
+  { id:55, address:"2255 Garden Crest Dr, Rockwall, TX 75087", price:365000, beds:3, baths:2, sqft:1623, year:2000, school:"Rockwall ISD", schoolGrade:"A", status:"ACTIVE", reason:"Best FYM in Rockwall. Has office.", cat:"active", score:50, lat:32.928, lng:-96.47, monthly:3100 },
+  { id:56, address:"807 Squire Ct, Allen, TX 75002", price:465000, beds:3, baths:2.5, sqft:2195, year:2000, school:"Allen ISD", schoolGrade:"A", status:"DROPPED", reason:"9/10 but only 3 beds. Wrong ratio.", cat:"dropped", score:20, lat:33.108, lng:-96.668 },
+  { id:57, address:"2551 Windgate Ln, Frisco, TX 75033", price:405000, beds:3, baths:2, sqft:1646, year:2000, school:"Frisco ISD", schoolGrade:"A", status:"DROPPED", reason:"Frisco ISD 9/10. Only 3 beds.", cat:"design_reference", score:25, lat:33.148, lng:-96.818, notes:"Quartz counters, stone fireplace. Design reference for finishes." },
+  { id:58, address:"4713 Whitehill Trl, McKinney, TX 75071", price:365000, beds:4, baths:2.5, sqft:2367, year:null, school:"McKinney ISD (verify)", schoolGrade:"A", status:"ACTIVE", reason:"Good space for the money.", cat:"contender", score:58, lat:33.235, lng:-96.645, monthly:3100 },
+  { id:59, address:"809 Glenwood Ct, McKinney, TX 75071", price:485000, beds:4, baths:3, sqft:2037, year:null, school:"McKinney ISD", schoolGrade:"A", status:"ACTIVE", reason:"HAS POOL. Texanized interior.", cat:"active", score:45, lat:33.2, lng:-96.695, monthly:4050, notes:"Only property with existing pool in McKinney. Needs $15-25k aesthetic update." },
+  { id:60, address:"1536 Babb Ln, Celina, TX 75009", price:null, beds:null, baths:null, sqft:null, year:2021, school:"Celina ISD", schoolGrade:"A", status:"NEEDS_VERIFICATION", reason:"Could not find active listing.", cat:"other", score:40, lat:33.32, lng:-96.788 },
+  { id:61, address:"2804 Claude White Crk, McKinney, TX 75071", price:null, beds:null, baths:null, sqft:null, year:null, school:"McKinney ISD", schoolGrade:"A", status:"NEEDS_VERIFICATION", reason:"Trinity Falls. Verify price.", cat:"other", score:40, lat:33.25, lng:-96.66 },
+  { id:62, address:"101 Highcrest Ln, Rockwall, TX", price:null, beds:3, baths:2.5, sqft:null, year:null, school:"Rockwall ISD", schoolGrade:"A", status:"SOLD", reason:"Already sold. Confirmed price points.", cat:"eliminated", score:5, lat:32.932, lng:-96.468 },
 ];
 
-// Post-process: add Redfin/Zillow estimates to all EST properties
-properties.forEach(p => {
-  if (p.status === S.EST) {
-    const est = estimates(p.address, p.sqft);
-    p.redfin = est.redfin;
-    p.zillow = est.zillow;
-    p.displayPrice = est.median;
-  }
-});
-
-// ==================== TOGGLE STATE ====================
-const visible = { pending:true, for_sale:true, '2022':true, '2023':true, '2024':true, '2025':true, '2026':true, est:true };
-
-function getSaleYear(d) {
-  return d.saleDate?.match(/\d{4}/)?.[0] || (d.listDate?.match(/\d{4}/)?.[0]) || '';
-}
-
-function getCategory(d) {
-  if (d.status === S.PENDING) return 'pending';
-  if (d.status === S.FOR_SALE) return 'for_sale';
-  if (d.status === S.SOLD || d.status === S.SOLD22) return getSaleYear(d);
-  return 'est';
-}
-
-function isVisible(d) { return visible[getCategory(d)]; }
-
-function toggle(key) {
-  visible[key] = !visible[key];
-  updateStats();
-  renderLayers();
-}
-
-// ==================== STATS ====================
-// Year color map for pills (matching bar colors)
-const YEAR_COLORS = {
-  '2022': { bg:'rgba(244,114,182,0.25)', text:'#f472b6', border:'rgba(244,114,182,0.5)' },
-  '2023': { bg:'rgba(168,85,247,0.25)', text:'#a855f7', border:'rgba(168,85,247,0.5)' },
-  '2024': { bg:'rgba(59,130,246,0.25)', text:'#3b82f6', border:'rgba(59,130,246,0.5)' },
-  '2025': { bg:'rgba(99,102,241,0.25)', text:'#6366f1', border:'rgba(99,102,241,0.5)' },
-  '2026': { bg:'rgba(16,185,129,0.25)', text:'#10b981', border:'rgba(16,185,129,0.5)' },
+// ===== COLOR MAPPING =====
+const catColors = {
+  top: [16, 185, 129],       // emerald
+  strong: [52, 211, 153],    // light emerald
+  active: [245, 158, 11],    // amber
+  contender: [234, 179, 8],  // yellow
+  financial: [6, 182, 212],  // cyan
+  aspirational: [139, 92, 246], // violet
+  design_reference: [168, 85, 247], // purple
+  deprioritized: [249, 115, 22], // orange
+  dropped: [248, 113, 113],  // light red
+  eliminated: [239, 68, 68], // red
+  other: [107, 114, 128],    // gray
 };
+function getColor(cat) { return catColors[cat] || catColors.other; }
+function getHex(cat) {
+  const c = getColor(cat);
+  return '#' + c.map(v => v.toString(16).padStart(2,'0')).join('');
+}
 
-function updateStats() {
-  const activeSold = properties.filter(p =>
-    (p.status===S.SOLD||p.status===S.SOLD22||p.status===S.PENDING) && isVisible(p)
-  );
-  const sp = activeSold.map(p=>p.salePrice||p.displayPrice).sort((a,b)=>a-b);
-  const n = sp.length;
+// Status group for filtering
+function getStatusGroup(cat) {
+  if (cat === 'top' || cat === 'strong') return 'top';
+  if (cat === 'active' || cat === 'contender' || cat === 'financial') return 'active';
+  if (cat === 'aspirational') return 'aspirational';
+  if (cat === 'eliminated' || cat === 'dropped') return 'eliminated';
+  return 'other';
+}
 
-  // Build year pills showing which years are included/excluded
-  const allSaleYears = ['2022','2023','2024','2025'];
-  let pillsHtml = '';
-  allSaleYears.forEach(y => {
-    const c = YEAR_COLORS[y];
-    const isOn = visible[y];
-    const cls = isOn ? '' : ' off';
-    const style = isOn
-      ? `background:${c.bg};color:${c.text};border:1px solid ${c.border}`
-      : `background:rgba(50,50,70,0.3);color:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.08)`;
-    pillsHtml += `<span class="year-pill${cls}" style="${style}">${y}</span>`;
-  });
-  // Pending pill
-  const pendOn = visible.pending;
-  const pendCls = pendOn ? '' : ' off';
-  const pendStyle = pendOn
-    ? 'background:rgba(250,204,21,0.25);color:#facc15;border:1px solid rgba(250,204,21,0.5)'
-    : 'background:rgba(50,50,70,0.3);color:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.08)';
-  pillsHtml += `<span class="year-pill${pendCls}" style="${pendStyle}">Pending</span>`;
-  document.getElementById('yearPills').innerHTML = pillsHtml;
+// School grade to numeric for filtering
+function schoolGradeNum(g) {
+  if (!g) return 0;
+  const s = g.toUpperCase();
+  if (s.startsWith('A')) return 4;
+  if (s.startsWith('B')) return 3;
+  if (s.startsWith('C')) return 2;
+  if (s.startsWith('D')) return 1;
+  return 0;
+}
 
-  if (n === 0) {
-    document.getElementById('medianValue').textContent = '--';
-    document.getElementById('medianSub').textContent = 'No sales selected';
-    document.getElementById('lowPrice').textContent = '--';
-    document.getElementById('highPrice').textContent = '--';
-    document.getElementById('medianLabel').textContent = 'MEDIAN SALE PRICE';
-  } else {
-    const median = n%2===0 ? (sp[n/2-1]+sp[n/2])/2 : sp[Math.floor(n/2)];
-    document.getElementById('medianValue').textContent = fmt(median);
-    document.getElementById('medianSub').textContent = `Based on ${n} sale${n>1?'s':''}`;
-    document.getElementById('lowPrice').textContent = fmt(sp[0]);
-    document.getElementById('highPrice').textContent = fmt(sp[n-1]);
-    document.getElementById('medianLabel').textContent = 'MEDIAN SALE PRICE';
+// Format price
+function fmtPrice(p) { return p ? '$' + p.toLocaleString() : 'N/A'; }
+
+// ===== BUILD GEOJSON =====
+function makeHex(lng, lat, r) {
+  const coords = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 6;
+    coords.push([lng + r * Math.cos(angle), lat + r * Math.sin(angle) * 1.1]);
   }
-  const totalVisible = properties.filter(p=>isVisible(p)).length;
-  const salesVisible = properties.filter(p=>(p.status===S.SOLD||p.status===S.SOLD22||p.status===S.PENDING)&&isVisible(p)).length;
-  document.getElementById('propCount').textContent = `3D Visualization | ${totalVisible} Properties Shown | ${salesVisible} Sales`;
+  coords.push(coords[0]);
+  return coords;
 }
 
-// ==================== COLORS ====================
-function getColor(d) {
-  if (!isVisible(d)) return [0,0,0,0];
-  if (d.status === S.PENDING) return [250,204,21,240];
-  if (d.status === S.FOR_SALE) return [34,211,238,240];
-  if (d.status === S.SOLD || d.status === S.SOLD22) {
-    const y = getSaleYear(d);
-    if (y==='2022') return [244,114,182,220];
-    if (y==='2023') return [168,85,247,220];
-    if (y==='2024') return [59,130,246,230];
-    if (y==='2025') return [99,102,241,230];
-    if (y==='2026') return [16,185,129,230];
-    return [139,92,246,220];
-  }
-  return [148,163,184,128];
-}
-
-function getFixedHeight(d) {
-  if (!isVisible(d)) return 0;
-  if (d.status === S.PENDING) return 124;
-  if (d.status === S.FOR_SALE) return 99;
-  if (d.status === S.SOLD || d.status === S.SOLD22) return 66;
-  return 30;
-}
-
-function getLabelColor(d) {
-  if (d.status===S.PENDING) return [253,224,71,255];
-  const y = getSaleYear(d);
-  if (y==='2022') return [251,168,211,255];
-  if (y==='2023') return [216,180,254,255];
-  if (y==='2024') return [147,197,253,255];
-  if (y==='2025') return [165,180,252,255];
-  if (y==='2026') return [110,231,183,255];
-  return [200,200,210,200];
-}
-
-// ==================== DECK.GL ====================
-const deckgl = new deck.DeckGL({
-  container:'map',
-  mapStyle:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-  initialViewState:{longitude:-121.7714,latitude:47.4942,zoom:16.2,pitch:50,bearing:-20},
-  controller:true,
-  layers:[],
-  getTooltip: () => null,
-  onHover: (info) => {
-    const tipEl = document.getElementById('tooltip-overlay');
-    const tipContent = document.getElementById('tipContent');
-    if (!info.object || !info.object.address || !isVisible(info.object)) {
-      tipEl.style.display = 'none';
-      return;
-    }
-    const p = info.object;
-    tipEl.style.display = 'block';
-    tipEl.style.left = (info.x + 12) + 'px';
-    tipEl.style.top = (info.y + 12) + 'px';
-    if(!p||!p.address||!isVisible(p)){tipEl.style.display='none';return;}
-    const yr=getSaleYear(p);
-    const stMap={
-      sold:{l:'SOLD '+yr,c:yr==='2024'?'#93c5fd':'#a5b4fc',bg:yr==='2024'?'rgba(59,130,246,0.2)':'rgba(99,102,241,0.2)'},
-      sold22:{l:'SOLD '+yr,c:yr==='2022'?'#fba8d3':'#d8b4fe',bg:yr==='2022'?'rgba(244,114,182,0.2)':'rgba(168,85,247,0.2)'},
-      pending:{l:'PENDING',c:'#fde047',bg:'rgba(250,204,21,0.2)'},
-      for_sale:{l:'FOR SALE',c:'#67e8f9',bg:'rgba(34,211,238,0.2)'},
-      est:{l:'EST. VALUE',c:'#94a3b8',bg:'rgba(148,163,184,0.15)'}
+function buildGeoJSON(filteredProps) {
+  const features = filteredProps.map(p => {
+    const r = p.cat === 'top' ? 0.005 : (p.cat === 'strong' ? 0.004 : 0.003);
+    const height = 2000 + (p.score / 100) * 45000;
+    const color = getColor(p.cat);
+    return {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [makeHex(p.lng, p.lat, r)] },
+      properties: {
+        id: p.id, height, color: `rgb(${color.join(',')})`,
+        r: color[0], g: color[1], b: color[2],
+        opacity: p.cat === 'top' ? 0.92 : (p.cat === 'eliminated' || p.cat === 'dropped' ? 0.45 : 0.75),
+        score: p.score
+      }
     };
-    const st=stMap[p.status];
-    const pl=p.status===S.EST?'Est. Value':p.status===S.PENDING?'List Price':'Sale Price';
-    const pv=p.displayPrice?`$${p.displayPrice.toLocaleString()}`:'N/A';
-    const dl=p.status===S.PENDING?'Listed':(p.status===S.SOLD||p.status===S.SOLD22)?'Sale Date':'Last Sold';
-    const dv=p.status===S.PENDING?(p.listDate||'N/A'):(p.saleDate||'N/A');
-    const sq=p.sqft?p.sqft.toLocaleString()+' sqft':'N/A';
-    const lo=p.lotSqft?p.lotSqft.toLocaleString()+' sqft':'--';
-    const bb=(p.beds&&p.baths)?`${p.beds} bed / ${p.baths} bath`:'--';
-    const dm=p.dom!=null?p.dom+' days':'--';
-    const yrBuilt=p.yearBuilt||'--';
-    const ps=(p.status!==S.SOLD&&p.status!==S.SOLD22&&p.salePrice)?`<tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">Prior Sale</td><td style="color:#e2e8f0">$${p.salePrice.toLocaleString()}</td></tr>`:'';
-    // Redfin/Zillow breakdown for EST properties
-    const estBreakdown = (p.status===S.EST && p.redfin && p.zillow) ? `
-      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.35);margin-bottom:8px">Estimated by</div>
-        <div style="background:#fff;border-radius:8px;padding:8px 14px;display:flex;align-items:center;margin-bottom:6px">
-          <div style="width:70px;flex-shrink:0;display:flex;align-items:center"><img src="Redfin.svg" style="width:60px;height:auto" /></div>
-          <span style="color:#1a1a2e;font-weight:700;font-size:13px;margin-left:auto">$${p.redfin.toLocaleString()}</span>
+  });
+  return { type: 'FeatureCollection', features };
+}
+
+function buildPointsGeoJSON(filteredProps) {
+  return {
+    type: 'FeatureCollection',
+    features: filteredProps.map(p => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+      properties: { id: p.id, cat: p.cat, rank: p.rank || 0 }
+    }))
+  };
+}
+
+// ===== FILTER LOGIC =====
+function getFiltered() {
+  const statusVal = document.getElementById('filter-status').value;
+  const maxPrice = parseInt(document.getElementById('filter-price').value);
+  const schoolVal = document.getElementById('filter-school').value;
+
+  return properties.filter(p => {
+    if (statusVal !== 'all' && getStatusGroup(p.cat) !== statusVal) return false;
+    if (p.price && p.price > maxPrice) return false;
+    if (schoolVal !== 'all') {
+      const num = schoolGradeNum(p.schoolGrade);
+      if (schoolVal === 'A' && num < 4) return false;
+      if (schoolVal === 'B' && num < 3) return false;
+      if (schoolVal === 'C' && num < 2) return false;
+    }
+    return true;
+  });
+}
+
+// ===== SIDEBAR =====
+function updateSidebar(filtered) {
+  document.getElementById('stat-total').textContent = filtered.length;
+  document.getElementById('stat-active').textContent = filtered.filter(p => ['active','contender','financial','strong'].includes(p.cat)).length;
+  document.getElementById('stat-top').textContent = filtered.filter(p => p.cat === 'top').length;
+
+  const list = document.getElementById('property-list');
+  // Sort: top contenders first (by rank), then by score desc
+  const sorted = [...filtered].sort((a, b) => {
+    if (a.cat === 'top' && b.cat !== 'top') return -1;
+    if (b.cat === 'top' && a.cat !== 'top') return 1;
+    if (a.cat === 'top' && b.cat === 'top') return (a.rank || 99) - (b.rank || 99);
+    return b.score - a.score;
+  });
+
+  list.innerHTML = sorted.map(p => {
+    const hex = getHex(p.cat);
+    const statusLabels = {
+      TOP_CONTENDER: 'Top Contender', STRONG_CONTENDER: 'Strong', BEST_VALUE: 'Best Value',
+      ACTIVE: 'Active', CONTENDER: 'Contender', FINANCIAL_FREEDOM: 'Financial Freedom',
+      ASPIRATIONAL: 'Aspirational', OVER_BUDGET: 'Over Budget', DESIGN_REFERENCE: 'Design Ref',
+      DEPRIORITIZED: 'Deprioritized', ELIMINATED: 'Eliminated', DROPPED: 'Dropped',
+      NEEDS_VERIFICATION: 'Needs Verify', DATA_CONFLICT: 'Data Conflict', NOT_AVAILABLE: 'Unavailable',
+      SOLD: 'Sold', ACTIVE_PROBLEMATIC: 'Problematic'
+    };
+    return `
+      <div class="prop-card" data-id="${p.id}" onclick="flyToProperty(${p.id})">
+        <div class="status-stripe" style="background:${hex}"></div>
+        ${p.rank ? `<div class="rank-badge" style="background:${hex}">#${p.rank}</div>` : ''}
+        <div class="card-header">
+          <div class="address">${p.address}</div>
+          <div class="price">${fmtPrice(p.price)}</div>
         </div>
-        <div style="background:#fff;border-radius:8px;padding:8px 14px;display:flex;align-items:center">
-          <div style="width:70px;flex-shrink:0;display:flex;align-items:center"><img src="Zillow.svg" style="width:60px;height:auto" /></div>
-          <span style="color:#1a1a2e;font-weight:700;font-size:13px;margin-left:auto">$${p.zillow.toLocaleString()}</span>
+        <div class="card-details">
+          ${p.beds ? `<span class="detail"><strong>${p.beds}</strong> bed</span>` : ''}
+          ${p.baths ? `<span class="detail"><strong>${p.baths}</strong> bath</span>` : ''}
+          ${p.sqft ? `<span class="detail"><strong>${p.sqft.toLocaleString()}</strong> sqft</span>` : ''}
+          ${p.monthly ? `<span class="detail"><strong>$${p.monthly.toLocaleString()}</strong>/mo</span>` : ''}
         </div>
-      </div>` : '';
-    tipContent.innerHTML = `<div style="line-height:1.6"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:15px;font-weight:700;color:#60a5fa">${p.address}</span><span style="font-size:9px;font-weight:700;color:${st.c};background:${st.bg};padding:2px 7px;border-radius:3px;letter-spacing:1px">${st.l}</span></div><div style="font-size:11px;color:rgba(255,255,255,0.35);margin-bottom:6px">North Bend, WA 98045</div><table style="width:100%;border-collapse:collapse"><tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">${pl}</td><td style="font-weight:600;color:${st.c}">${pv}</td></tr><tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">${dl}</td><td style="color:#e2e8f0">${dv}</td></tr>${ps}<tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">Living Area</td><td style="color:#e2e8f0">${sq}</td></tr><tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">Lot Size</td><td style="color:#e2e8f0">${lo}</td></tr><tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">Bed / Bath</td><td style="color:#e2e8f0">${bb}</td></tr><tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">Year Built</td><td style="color:#e2e8f0">${yrBuilt}</td></tr><tr><td style="color:rgba(255,255,255,0.5);padding:2px 10px 2px 0">Days on Market</td><td style="color:#e2e8f0">${dm}</td></tr></table>${estBreakdown}</div>`;
+        <div class="status-badge" style="background:${hex}22;color:${hex};border:1px solid ${hex}44">
+          ${statusLabels[p.status] || p.status}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== INFO PANEL =====
+function showInfoPanel(p) {
+  const hex = getHex(p.cat);
+  document.getElementById('info-content').innerHTML = `
+    <h3>${p.address}</h3>
+    <div class="ip-price">${fmtPrice(p.price)}</div>
+    <div class="ip-grid">
+      ${p.beds ? `<div class="ip-item"><span class="ip-label">Beds:</span> <span class="ip-val">${p.beds}</span></div>` : ''}
+      ${p.baths ? `<div class="ip-item"><span class="ip-label">Baths:</span> <span class="ip-val">${p.baths}</span></div>` : ''}
+      ${p.sqft ? `<div class="ip-item"><span class="ip-label">Sqft:</span> <span class="ip-val">${p.sqft.toLocaleString()}</span></div>` : ''}
+      ${p.year ? `<div class="ip-item"><span class="ip-label">Built:</span> <span class="ip-val">${p.year}</span></div>` : ''}
+      <div class="ip-item"><span class="ip-label">School:</span> <span class="ip-val">${p.schoolGrade}</span></div>
+      <div class="ip-item"><span class="ip-label">District:</span> <span class="ip-val">${p.school}</span></div>
+      ${p.monthly ? `<div class="ip-item"><span class="ip-label">Est. Mo:</span> <span class="ip-val">$${p.monthly.toLocaleString()}</span></div>` : ''}
+      ${p.fym ? `<div class="ip-item"><span class="ip-label">5yr FYM:</span> <span class="ip-val">$${p.fym.toLocaleString()}</span></div>` : ''}
+    </div>
+    <div style="margin-bottom:8px"><span style="display:inline-block;font-size:10px;padding:3px 8px;border-radius:4px;background:${hex}22;color:${hex};border:1px solid ${hex}44;font-weight:700">${p.status}</span></div>
+    <div class="ip-notes"><strong>Analysis:</strong> ${p.reason}</div>
+    ${p.notes ? `<div class="ip-notes" style="margin-top:6px"><strong>Notes:</strong> ${p.notes}</div>` : ''}
+  `;
+  document.getElementById('info-panel').classList.add('visible');
+}
+function closeInfoPanel() { document.getElementById('info-panel').classList.remove('visible'); }
+
+// ===== MAP INIT =====
+let map, currentPopup;
+
+function initMap() {
+  map = new maplibregl.Map({
+    container: 'map',
+    style: {
+      version: 8,
+      sources: {
+        'carto': {
+          type: 'raster',
+          tiles: [
+            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'
+          ],
+          tileSize: 256,
+          attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+        }
+      },
+      layers: [
+        { id: 'bg', type: 'background', paint: { 'background-color': '#0a0e1a' } },
+        { id: 'carto', type: 'raster', source: 'carto' }
+      ]
+    },
+    center: [-96.72, 32.88],
+    zoom: 8.4,
+    pitch: 0,
+    bearing: 0,
+    maxPitch: 70,
+    antialias: true,
+  });
+
+  map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+
+  map.on('load', () => {
+    // Animate to 3D perspective
+    setTimeout(() => {
+      map.easeTo({ pitch: 55, bearing: -15, zoom: 8.8, duration: 2800, easing: t => t * (2 - t) });
+    }, 500);
+
+    addLayers();
+    addRealPageMarker();
+    setupInteractions();
+  });
+}
+
+function addLayers() {
+  const filtered = getFiltered();
+  updateSidebar(filtered);
+
+  // Add extrusion source
+  map.addSource('properties', { type: 'geojson', data: buildGeoJSON(filtered) });
+  map.addSource('prop-points', { type: 'geojson', data: buildPointsGeoJSON(filtered) });
+
+  // Heatmap layer (subtle glow under columns)
+  map.addLayer({
+    id: 'heatmap',
+    type: 'heatmap',
+    source: 'prop-points',
+    paint: {
+      'heatmap-weight': ['interpolate', ['linear'], ['get', 'rank'], 0, 0.3, 6, 1],
+      'heatmap-intensity': 0.6,
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 30, 12, 80],
+      'heatmap-color': [
+        'interpolate', ['linear'], ['heatmap-density'],
+        0, 'rgba(0,0,0,0)',
+        0.2, 'rgba(139,92,246,0.15)',
+        0.4, 'rgba(6,182,212,0.25)',
+        0.6, 'rgba(16,185,129,0.35)',
+        0.8, 'rgba(52,211,153,0.45)',
+        1, 'rgba(16,185,129,0.6)'
+      ],
+      'heatmap-opacity': 0.7,
+    }
+  });
+
+  // 3D extrusion layer
+  map.addLayer({
+    id: 'columns',
+    type: 'fill-extrusion',
+    source: 'properties',
+    paint: {
+      'fill-extrusion-color': ['get', 'color'],
+      'fill-extrusion-height': ['get', 'height'],
+      'fill-extrusion-base': 0,
+      'fill-extrusion-opacity': 0.82,
+    }
+  });
+
+  // Top contender rank markers (HTML markers instead of symbol layer)
+  properties.filter(p => p.rank).forEach(p => {
+    const el = document.createElement('div');
+    el.style.cssText = 'width:28px;height:28px;border-radius:50%;background:#10b981;color:#0f172a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;border:2px solid #fff;box-shadow:0 0 12px rgba(16,185,129,0.6);cursor:pointer;';
+    el.textContent = '#' + p.rank;
+    el.title = p.address;
+    el.onclick = () => flyToProperty(p.id);
+    new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, -10] })
+      .setLngLat([p.lng, p.lat])
+      .addTo(map);
+  });
+}
+
+function updateLayers() {
+  const filtered = getFiltered();
+  updateSidebar(filtered);
+  if (map.getSource('properties')) {
+    map.getSource('properties').setData(buildGeoJSON(filtered));
   }
+  if (map.getSource('prop-points')) {
+    map.getSource('prop-points').setData(buildPointsGeoJSON(filtered));
+  }
+}
+
+function addRealPageMarker() {
+  const el = document.createElement('div');
+  el.className = 'realpage-marker';
+  el.textContent = 'RP';
+  el.title = 'RealPage HQ - Richardson, TX';
+  new maplibregl.Marker({ element: el })
+    .setLngLat([-96.73, 32.95])
+    .setPopup(new maplibregl.Popup({ offset: 20 }).setHTML(
+      '<div style="color:#e2e8f0"><strong>RealPage HQ</strong><br><span style="font-size:11px;color:#94a3b8">Richardson, TX<br>Employer office</span></div>'
+    ))
+    .addTo(map);
+}
+
+function setupInteractions() {
+  // Hover cursor
+  map.on('mouseenter', 'columns', () => { map.getCanvas().style.cursor = 'pointer'; });
+  map.on('mouseleave', 'columns', () => { map.getCanvas().style.cursor = ''; });
+
+  // Click on column
+  map.on('click', 'columns', (e) => {
+    if (e.features.length > 0) {
+      const propId = e.features[0].properties.id;
+      const p = properties.find(x => x.id === propId);
+      if (p) {
+        showInfoPanel(p);
+        highlightCard(p.id);
+        map.easeTo({ center: [p.lng, p.lat], zoom: 10.5, pitch: 55, bearing: -15, duration: 1200 });
+      }
+    }
+  });
+
+  // Tooltip on hover
+  const tooltip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 15, className: 'hover-tooltip' });
+  map.on('mousemove', 'columns', (e) => {
+    if (e.features.length > 0) {
+      const propId = e.features[0].properties.id;
+      const p = properties.find(x => x.id === propId);
+      if (p) {
+        const shortAddr = p.address.split(',')[0];
+        tooltip.setLngLat(e.lngLat).setHTML(
+          `<div style="font-size:12px"><strong>${shortAddr}</strong><br>${fmtPrice(p.price)}${p.beds ? ` &bull; ${p.beds}bd/${p.baths}ba` : ''}</div>`
+        ).addTo(map);
+      }
+    }
+  });
+  map.on('mouseleave', 'columns', () => { tooltip.remove(); });
+}
+
+function flyToProperty(id) {
+  const p = properties.find(x => x.id === id);
+  if (!p) return;
+  showInfoPanel(p);
+  highlightCard(id);
+  map.easeTo({ center: [p.lng, p.lat], zoom: 10.5, pitch: 55, bearing: -15, duration: 1500 });
+}
+
+function highlightCard(id) {
+  document.querySelectorAll('.prop-card').forEach(c => c.classList.remove('active'));
+  const card = document.querySelector(`.prop-card[data-id="${id}"]`);
+  if (card) {
+    card.classList.add('active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+// ===== FILTER EVENTS =====
+document.getElementById('filter-status').addEventListener('change', updateLayers);
+document.getElementById('filter-school').addEventListener('change', updateLayers);
+document.getElementById('filter-price').addEventListener('input', (e) => {
+  document.getElementById('price-val').textContent = '$' + (parseInt(e.target.value) / 1000) + 'K';
+  updateLayers();
 });
 
-function renderLayers() {
-  const vis = properties.filter(p=>isVisible(p)&&p.displayPrice);
-  const labeled = properties.filter(p=>(p.status===S.SOLD||p.status===S.SOLD22||p.status===S.PENDING)&&isVisible(p));
-
-  deckgl.setProps({ layers: [
-    new deck.ColumnLayer({
-      id:'cols', data:vis, diskResolution:20, radius:5, extruded:true,
-      getPosition:d=>[d.lng,d.lat], getElevation:d=>getFixedHeight(d),
-      getFillColor:d=>getColor(d), pickable:true, autoHighlight:true,
-      highlightColor:[255,255,255,80],
-      material:{ambient:0.6,diffuse:0.7,shininess:40,specularColor:[200,200,255]},
-      updateTriggers:{getElevation:[JSON.stringify(visible)],getFillColor:[JSON.stringify(visible)]}
-    }),
-    new deck.ScatterplotLayer({
-      id:'dots', data:vis, getPosition:d=>[d.lng,d.lat], getRadius:3,
-      getFillColor:d=>getColor(d), pickable:true, stroked:true,
-      getLineColor:[255,255,255,100], lineWidthMinPixels:1,
-    }),
-    new deck.ScatterplotLayer({
-      id:'rings', data:properties.filter(p=>(p.status===S.PENDING||p.status===S.FOR_SALE)&&isVisible(p)),
-      getPosition:d=>[d.lng,d.lat], getRadius:10, getFillColor:[0,0,0,0], stroked:true,
-      getLineColor:d=>d.status===S.PENDING?[250,204,21,200]:[34,211,238,200], lineWidthMinPixels:2,
-    }),
-    new deck.TextLayer({
-      id:'labels', data:labeled,
-      getPosition:d=>[d.lng,d.lat,getFixedHeight(d)+5],
-      getText:d=>{
-        const price=fmt(d.displayPrice);
-        const y=d.saleDate?.match(/\d{4}/)?.[0]||'';
-        if(d.status===S.PENDING)return 'PENDING '+price;
-        return 'SOLD '+y+' '+price;
-      },
-      getSize:11, getColor:d=>getLabelColor(d),
-      getTextAnchor:'middle', getAlignmentBaseline:'bottom', billboard:true,
-      fontFamily:'Segoe UI, system-ui', fontWeight:700, outlineWidth:2, outlineColor:[0,0,0,220],
-    }),
-  ]});
-}
-
-// Initial render
-updateStats();
-renderLayers();
+// ===== INIT =====
+initMap();
 </script>
 </body>
 </html>
