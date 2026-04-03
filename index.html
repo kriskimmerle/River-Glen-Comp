@@ -19,11 +19,15 @@
     border: 1px solid rgba(255,255,255,0.15); border-radius: 16px;
     padding: 26px 32px; text-align: center; z-index: 100; pointer-events: none;
     box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(59,130,246,0.15);
-    min-width: 300px; transition: opacity 0.5s ease;
+    min-width: 460px; transition: opacity 0.5s ease;
   }
   .median-panel.hidden { opacity: 0; }
   .median-label { font-size: 10px; text-transform: uppercase; letter-spacing: 2.5px; color: rgba(255,255,255,0.5); margin-bottom: 6px; }
-  .median-value { font-size: 42px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2; }
+  .dual-metrics { display: flex; align-items: center; gap: 0; margin-bottom: 4px; }
+  .metric-block { flex: 1; text-align: center; white-space: nowrap; }
+  .metric-divider { width: 1px; height: 50px; background: rgba(255,255,255,0.12); flex-shrink: 0; margin: 0 16px; }
+  .median-value { font-size: 38px; font-weight: 700; background: linear-gradient(135deg, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2; }
+  .dom-value { font-size: 36px; background: linear-gradient(135deg, #34d399, #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .median-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 6px; }
   .year-pills { display: flex; gap: 6px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
   .year-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px; }
@@ -47,6 +51,7 @@
     background: rgba(10, 10, 30, 0.88); backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.12); border-radius: 12px;
     padding: 14px 18px; min-width: 190px;
+    display: flex; flex-direction: column; justify-content: center;
   }
   .legend-title { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.5); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
   .legend-hint { font-size: 8px; text-transform: none; letter-spacing: 0.5px; color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); }
@@ -100,11 +105,20 @@
 </div>
 
 <div class="median-panel" id="medianPanel">
-  <div class="median-label" id="medianLabel">Median Sale Price</div>
-  <div class="median-value" id="medianValue"></div>
+  <div class="dual-metrics">
+    <div class="metric-block">
+      <div class="median-label">Median Sale Price</div>
+      <div class="median-value" id="medianValue"></div>
+    </div>
+    <div class="metric-divider"></div>
+    <div class="metric-block">
+      <div class="median-label">Median Days on Market</div>
+      <div class="median-value dom-value" id="medianDOM"></div>
+    </div>
+  </div>
   <div class="median-sub" id="medianSub"></div>
   <div class="year-pills" id="yearPills"></div>
-  <div class="median-note">Est. values are not factored into this calculation</div>
+  <div class="median-note">Est. values are not factored into these calculations</div>
   <div class="median-stats">
     <div class="stat"><div class="stat-val" id="lowPrice"></div><div class="stat-label">Lowest Sale</div></div>
     <div class="stat"><div class="stat-val" id="highPrice"></div><div class="stat-label">Highest Sale</div></div>
@@ -148,10 +162,10 @@ const properties = [
   {address:"718 NE 4th St",lat:47.4951906,lng:-121.7727074,status:S.SOLD,saleDate:"Jul 24, 2024",salePrice:1299950,displayPrice:1299950,sqft:3070,beds:4,baths:3.5,dom:4,lotSqft:6184,yearBuilt:2019,ppsf:423},
   {address:"782 NE 4th St",lat:47.4954614,lng:-121.7721114,status:S.SOLD,saleDate:"Jul 18, 2024",salePrice:1399950,displayPrice:1399950,sqft:3070,beds:4,baths:3.5,dom:6,lotSqft:8297,yearBuilt:2019,ppsf:456},
   {address:"804 NE 4th St",lat:47.4954863,lng:-121.7716318,status:S.SOLD,saleDate:"Mar 7, 2025",salePrice:1450000,displayPrice:1450000,sqft:2842,beds:5,baths:3,dom:2,lotSqft:11404,yearBuilt:2018,ppsf:510},
-  {address:"775 NE 4th St",lat:47.4950464,lng:-121.7720541,status:S.SOLD,saleDate:"May 8, 2025",salePrice:1550000,displayPrice:1550000,sqft:3244,beds:5,baths:3.25,dom:null,lotSqft:7200,yearBuilt:2017,ppsf:478},
-  {address:"346 Zemp Way NE",lat:47.4935866,lng:-121.7712736,status:S.SOLD,saleDate:"Apr 8, 2025",salePrice:1348000,displayPrice:1348000,sqft:3070,beds:4,baths:3.25,dom:null,lotSqft:5096,yearBuilt:2017,ppsf:439},
-  {address:"312 Zemp Way NE",lat:47.4935804,lng:-121.7699475,status:S.SOLD,saleDate:"Aug 15, 2025",salePrice:1350000,displayPrice:1350000,sqft:2830,beds:4,baths:2.5,dom:null,lotSqft:5390,yearBuilt:2017,ppsf:477},
-  {address:"347 Vaughan Blvd NE",lat:47.4938707,lng:-121.7710385,status:S.SOLD,saleDate:"Jul 29, 2025",salePrice:1420000,displayPrice:1420000,sqft:3024,beds:4,baths:3.25,dom:null,lotSqft:5200,yearBuilt:2017,ppsf:470},
+  {address:"775 NE 4th St",lat:47.4950464,lng:-121.7720541,status:S.SOLD,saleDate:"May 8, 2025",salePrice:1550000,displayPrice:1550000,sqft:3244,beds:5,baths:3.25,dom:5,lotSqft:7200,yearBuilt:2017,ppsf:478},
+  {address:"346 Zemp Way NE",lat:47.4935866,lng:-121.7712736,status:S.SOLD,saleDate:"Apr 8, 2025",salePrice:1348000,displayPrice:1348000,sqft:3070,beds:4,baths:3.25,dom:13,lotSqft:5096,yearBuilt:2017,ppsf:439},
+  {address:"312 Zemp Way NE",lat:47.4935804,lng:-121.7699475,status:S.SOLD,saleDate:"Aug 15, 2025",salePrice:1350000,displayPrice:1350000,sqft:2830,beds:4,baths:2.5,dom:8,lotSqft:5390,yearBuilt:2017,ppsf:477},
+  {address:"347 Vaughan Blvd NE",lat:47.4938707,lng:-121.7710385,status:S.SOLD,saleDate:"Jul 29, 2025",salePrice:1420000,displayPrice:1420000,sqft:3024,beds:4,baths:3.25,dom:4,lotSqft:5200,yearBuilt:2017,ppsf:470},
 
   // === PENDING (1 home) ===
   {address:"386 Zemp Way NE",lat:47.4942136,lng:-121.7724466,status:S.PENDING,saleDate:null,salePrice:null,displayPrice:1499950,listPrice:1499950,listDate:"Mar 26, 2026",sqft:3200,beds:5,baths:3.5,dom:7,lotSqft:5100,yearBuilt:2019,ppsf:469},
@@ -341,23 +355,34 @@ function updateStats() {
   pillsHtml += `<span class="year-pill${pendCls}" style="${pendStyle}">Pending</span>`;
   document.getElementById('yearPills').innerHTML = pillsHtml;
 
+  // Median DOM calculation
+  const domValues = activeSold.filter(p=>p.dom!=null).map(p=>p.dom).sort((a,b)=>a-b);
+  const dn = domValues.length;
+  const medianDOM = dn===0 ? null : dn%2===0 ? (domValues[dn/2-1]+domValues[dn/2])/2 : domValues[Math.floor(dn/2)];
+
   if (n === 0) {
     document.getElementById('medianValue').textContent = '--';
+    document.getElementById('medianDOM').textContent = '--';
     document.getElementById('medianSub').textContent = 'No sales selected';
     document.getElementById('lowPrice').textContent = '--';
     document.getElementById('highPrice').textContent = '--';
-    document.getElementById('medianLabel').textContent = 'MEDIAN SALE PRICE';
   } else {
     const median = n%2===0 ? (sp[n/2-1]+sp[n/2])/2 : sp[Math.floor(n/2)];
     document.getElementById('medianValue').textContent = fmt(median);
+    document.getElementById('medianDOM').textContent = medianDOM!=null ? Math.round(medianDOM)+' days' : '--';
     document.getElementById('medianSub').textContent = `Based on ${n} sale${n>1?'s':''}`;
     document.getElementById('lowPrice').textContent = fmt(sp[0]);
     document.getElementById('highPrice').textContent = fmt(sp[n-1]);
-    document.getElementById('medianLabel').textContent = 'MEDIAN SALE PRICE';
   }
   const totalVisible = properties.filter(p=>isVisible(p)).length;
   const salesVisible = properties.filter(p=>(p.status===S.SOLD||p.status===S.SOLD22||p.status===S.PENDING)&&isVisible(p)).length;
   document.getElementById('propCount').textContent = `3D Visualization | ${totalVisible} Properties Shown | ${salesVisible} Sales`;
+  // Sync legend height to median panel
+  requestAnimationFrame(() => {
+    const mp = document.getElementById('medianPanel');
+    const lg = document.querySelector('.legend');
+    if (mp && lg) lg.style.height = mp.offsetHeight + 'px';
+  });
 }
 
 // ==================== COLORS ====================
