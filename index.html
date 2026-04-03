@@ -250,6 +250,7 @@ const properties = [
   // === ESTIMATED - Vaughan Blvd NE outer (odd side, Photon geocoded) ===
   {address:"303 Vaughan Blvd NE",lat:47.4938963,lng:-121.7695306,status:S.EST,displayPrice:e(2830),sqft:2830,beds:5,baths:3,yearBuilt:2017},
   {address:"309 Vaughan Blvd NE",lat:47.4938713,lng:-121.7704498,status:S.EST,displayPrice:e(3000),sqft:3000},
+  {address:"311 Vaughan Blvd NE",lat:47.4940224,lng:-121.7696117,status:S.EST,displayPrice:e(3070),sqft:3070,yearBuilt:2017},
   {address:"319 Vaughan Blvd NE",lat:47.4938827,lng:-121.7699738,status:S.EST,displayPrice:e(3000),sqft:3000},
   {address:"325 Vaughan Blvd NE",lat:47.4938906,lng:-121.7701795,status:S.EST,displayPrice:e(3000),sqft:3000},
   {address:"329 Vaughan Blvd NE",lat:47.493875,lng:-121.7704158,status:S.EST,displayPrice:e(3000),sqft:3000},
@@ -378,7 +379,7 @@ function getColor(d) {
 
 function getFixedHeight(d) {
   if (!isVisible(d)) return 0;
-  if (d.status === S.PENDING) return 124;
+  if (d.status === S.PENDING) return 99;
   if (d.status === S.FOR_SALE) return 99;
   if (d.status === S.SOLD || d.status === S.SOLD22) return 66;
   return 30;
